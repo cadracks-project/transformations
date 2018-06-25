@@ -4,14 +4,19 @@ r"""Mechanical links modeling"""
 
 import numpy as np
 
-from transformations import translation_matrix, rotation_matrix
+from transformations import translation_matrix, rotation_matrix, superimposition_matrix
+
+
+def find_transformation_to_world(p, u, v):
+    v0 = np.array([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
+    v1 = np.array([p, p + u, p + v])
+
+    return superimposition_matrix(v0.T, v1.T, scale=False, usesvd=False)
 
 
 class Link(object):
-    def __init__(self, p, u, v, tx, ty, tz, rx, ry, rz):
-        self._p = p
-        self._u = u
-        self._v = v
+    def __init__(self, anchor, tx=0, ty=0, tz=0, rx=0, ry=0, rz=0):
+        self._anchor = anchor
 
         self.tx = tx
         self.ty = ty
@@ -22,25 +27,33 @@ class Link(object):
         self.rz = rz
 
     @property
+    def anchor(self):
+        return self._anchor
+
+    @property
     def p(self):
-        return np.array(self._p)
+        return self.anchor.p
 
     @property
     def u(self):
-        return np.array(self._u)
+        return self.anchor.u
 
     @property
     def v(self):
-        return np.ndarray(self._v)
+        return self.anchor.v
 
     @property
     def w(self):
         r"""Virtual 3rd anchor vector"""
-        return np.cross(self.u, self.v)
+        return self.anchor.w
 
+    @property
     def transformation_matrix(self):
-        tr = translation_matrix((tx * self.u, ty * self.v, tz * self.w))
-        rot_x = rotation_matrix(rx, self.u, self.p)
-        rot_y = rotation_matrix(ry, self.v, self.p)
-        rot_z = rotation_matrix(rz, self.w, self.p)
-        return np.dot(tr, rot_x, rot_y, rot_z)
+        m = find_transformation_to_world(self.p, self.u, self.v)
+        t_world = np.dot(m, np.array([self.tx, self.ty, self.tz, 0]))
+        tr = translation_matrix([t_world[0], t_world[1], t_world[2]])
+        rot_x = rotation_matrix(self.rx, self.u, self.p)
+        rot_y = rotation_matrix(self.ry, self.v, self.p)
+        rot_z = rotation_matrix(self.rz, self.w, self.p)
+        from functools import reduce
+        return reduce(np.dot, [tr, rot_x, rot_y, rot_z])

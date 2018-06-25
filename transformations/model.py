@@ -118,7 +118,7 @@ class Assembly(object):
                  part_to_add_anchors,
                  receiving_parts,
                  receiving_part_anchors,
-                 types_of_links):
+                 links):
         r"""
         
         Parameters
@@ -130,19 +130,21 @@ class Assembly(object):
             List of AnchorablePart
         receiving_part_anchors
             List of anchors names on receiving parts
-        types_of_links : list
-            List of types of links
+        links : list[Link]
+            List of links applied in the same order as the anchors
 
         Returns
         -------
 
         """
-        assert len(part_to_add_anchors) == len(receiving_parts) == len(receiving_part_anchors) == len(types_of_links)
+        assert len(part_to_add_anchors) == len(receiving_parts) == len(receiving_part_anchors) == len(links)
         if len(part_to_add_anchors) == 1:
             # This is the base case that is already dealt with in osvcad
             m = anchor_transformation(part_to_add.anchors[part_to_add_anchors[0]],
                                       receiving_parts[0].anchors[receiving_part_anchors[0]])
             part_to_add.add_matrix(m)
+            for link in links:
+                part_to_add.add_matrix(link.transformation_matrix)
             self._parts.append(part_to_add)
         else:
             # constraints solver
@@ -187,7 +189,15 @@ if __name__ == "__main__":
     display_anchorable_part(display, ap1, color="WHITE")
 
     a = Assembly(root_part=ap1, name='simple assembly')
-    a.add_part(ap2, ['a1'], [ap1], ['a1'], types_of_links=['basic'])
+    from links import Link
+
+    a.add_part(ap2, ['a1'], [ap1], ['a1'], links=[Link(anchor=ap1.anchors['a1'],
+                                                       tx=-3,
+                                                       ty=0,
+                                                       tz=0,
+                                                       rx=0.2,
+                                                       ry=0.2,
+                                                       rz=0.2)])
 
     display_anchorable_part(display, ap2.transformed, color="BLUE")
     # print(ap2._part_transformation_matrices)

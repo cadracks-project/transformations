@@ -22,7 +22,7 @@ class Anchor(object):
     """
     def __init__(self, p, u, v, name):
         assert len(p) == len(u) == len(v) == 3
-        assert np.dot(np.array(u), np.array(v)) == 0
+        assert abs(np.dot(np.array(u), np.array(v))) < 1e-6
         self._p = p
         self._u = u
         self._v = v
