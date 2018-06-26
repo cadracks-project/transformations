@@ -4,7 +4,7 @@ r"""Anchors stuff"""
 
 import numpy as np
 
-from conversions import p3_to_p4, p4_to_p3, v4_to_v3, v3_to_v4
+from transformations.conversions import p3_to_p4, p4_to_p3, v4_to_v3, v3_to_v4
 
 
 class Anchor(object):
@@ -79,7 +79,7 @@ def anchor_transformation(anchor_0, anchor_1):
     4x4 matrix
 
     """
-    from transformations import superimposition_matrix
+    from transformations.transformations import superimposition_matrix
     # compute points to transform
     v0 = np.array(
         [anchor_0.p, anchor_0.p + anchor_0.u, anchor_0.p + anchor_0.v])

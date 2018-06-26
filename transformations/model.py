@@ -2,15 +2,13 @@
 
 r"""?"""
 
-# TODO : transform around the anchor
-#          -> should generate another matrix stored on the part
-#             or on the assembly
-#             (since assemblies can be put together with anchors)
-#        transform an assembly
+# TODO : potential anchor names duplicates problem
+#        add_assembly should not be static and an assembly should manage a list of contained assemblies
 
 import numpy as np
 
-from anchors import Anchor, anchor_transformation
+from transformations.anchors import Anchor, anchor_transformation
+from transformations.transformations import identity_matrix
 
 
 class Part(object):
@@ -40,13 +38,17 @@ class Part(object):
         matrices"""
         assert np.shape(m) == (4, 4)
         self._part_transformation_matrices.append(m)
+        # self._part_transformation_matrices = [m] + self._part_transformation_matrices
 
     @property
     def combined_matrix(self):
         r"""Combine all transformation matrices into a single matrix that
         can be used to place the part in its final location"""
         from functools import reduce
-        return reduce(np.dot, self._part_transformation_matrices)
+        if self._part_transformation_matrices:
+            return reduce(np.dot, self._part_transformation_matrices)
+        else:
+            return identity_matrix()
 
     @property
     def transformed_shape(self):
@@ -111,13 +113,14 @@ class Assembly(object):
         self._root_part = root_part
         self._assembly_transformations_matrices = []
         self._parts = []
+        self._parts.append(root_part)
         self._name = name
 
     def add_part(self,
                  part_to_add,
                  part_to_add_anchors,
                  receiving_parts,
-                 receiving_part_anchors,
+                 receiving_parts_anchors,
                  links):
         r"""
         
@@ -128,7 +131,7 @@ class Assembly(object):
             List of anchors names on part_to_add
         receiving_parts : list
             List of AnchorablePart
-        receiving_part_anchors
+        receiving_parts_anchors
             List of anchors names on receiving parts
         links : list[Link]
             List of links applied in the same order as the anchors
@@ -137,70 +140,42 @@ class Assembly(object):
         -------
 
         """
-        assert len(part_to_add_anchors) == len(receiving_parts) == len(receiving_part_anchors) == len(links)
+        assert len(part_to_add_anchors) == len(receiving_parts) == len(receiving_parts_anchors) == len(links)
         if len(part_to_add_anchors) == 1:
             # This is the base case that is already dealt with in osvcad
-            m = anchor_transformation(part_to_add.anchors[part_to_add_anchors[0]],
-                                      receiving_parts[0].anchors[receiving_part_anchors[0]])
+            m = anchor_transformation(part_to_add.transformed.anchors[part_to_add_anchors[0]],
+                                      receiving_parts[0].transformed.anchors[receiving_parts_anchors[0]])
             part_to_add.add_matrix(m)
-            for link in links:
-                part_to_add.add_matrix(link.transformation_matrix)
+            part_to_add.add_matrix(links[0].transformation_matrix)
             self._parts.append(part_to_add)
         else:
             # constraints solver
             # system of equations
             # other ideas ?
-            pass
+            raise NotImplementedError
 
+    @staticmethod
+    def add_assembly(assembly_to_add,
+                     assembly_to_add_anchors,
+                     receiving_assemblies,
+                     receiving_assemblies_anchors,
+                     links):
+        assert len(assembly_to_add_anchors) == len(receiving_assemblies) == len(receiving_assemblies_anchors) == len(links)
+        if len(assembly_to_add_anchors) == 1:
+            m = anchor_transformation(assembly_to_add.anchors[assembly_to_add_anchors[0]],
+                                      receiving_assemblies[0].anchors[receiving_assemblies_anchors[0]])
+            for part in assembly_to_add._parts:
+                # part.add_matrix(m)
+                part._part_transformation_matrices = [m] + part._part_transformation_matrices
+                # part.add_matrix(links[0].transformation_matrix)
+                part._part_transformation_matrices = [links[0].transformation_matrix] + part._part_transformation_matrices
+        else:
+            raise NotImplementedError
 
-if __name__ == "__main__":
-
-    # a0 = Anchor(p=(0, 0, 0), u=(1, 0, 0), v=(0, 1, 0), name='a0')
-    # a1 = Anchor(p=(2, 0, 0), u=(1, 0, 0), v=(0, 0, 1), name='a1')
-    #
-    # m = anchor_transformation(a0, a1)
-    # print(m)
-    # print("Det : %f" % np.linalg.det(m))
-
-    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
-    from OCC.Display.SimpleGui import init_display
-    from display import display_anchorable_part
-
-    shape_1 = BRepPrimAPI_MakeBox(10, 10, 10).Shape()
-
-    ap1 = AnchorablePart(shape=shape_1,
-                         anchors=[Anchor(p=(5, 5, 10),
-                                         u=(0, 0, 1),
-                                         v=(0, 1, 0),
-                                         name='a1')],
-                         name='ap1')
-
-    ap2 = AnchorablePart(shape=shape_1,
-                         anchors=[Anchor(p=(5, 5, 10),
-                                         u=(0, 0, 1),
-                                         v=(0, 1, 0),
-                                         name='a1')],
-                         name='ap2')
-
-    display, start_display, add_menu, add_function_to_menu = init_display()
-
-    # print(ap1.anchors)
-
-    display_anchorable_part(display, ap1, color="WHITE")
-
-    a = Assembly(root_part=ap1, name='simple assembly')
-    from links import Link
-
-    a.add_part(ap2, ['a1'], [ap1], ['a1'], links=[Link(anchor=ap1.anchors['a1'],
-                                                       tx=-3,
-                                                       ty=0,
-                                                       tz=0,
-                                                       rx=0.2,
-                                                       ry=0.2,
-                                                       rz=0.2)])
-
-    display_anchorable_part(display, ap2.transformed, color="BLUE")
-    # print(ap2._part_transformation_matrices)
-
-    display.FitAll()
-    start_display()
+    @property
+    def anchors(self):
+        anchors = {}
+        for part in self._parts:
+            for k, v in part.transformed.anchors.items():
+                anchors[k] = v
+        return anchors

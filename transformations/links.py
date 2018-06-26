@@ -4,7 +4,7 @@ r"""Mechanical links modeling"""
 
 import numpy as np
 
-from transformations import translation_matrix, rotation_matrix, superimposition_matrix
+from transformations.transformations import translation_matrix, rotation_matrix, superimposition_matrix
 
 
 def find_transformation_to_world(p, u, v):
